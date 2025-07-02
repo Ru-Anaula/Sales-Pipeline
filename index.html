@@ -130,34 +130,45 @@
 
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Ensure all Firebase imports are from the SAME version (e.g., 11.10.0)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
         import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check.js";
 
-        // --- Firebase Configuration ---
-        // Your web app's Firebase configuration
-        const firebaseConfig = {
-          apiKey: "AIzaSyAO4zGF-9Ess6RTE31aLgYNAi0H3lviqlI",
-          authDomain: "my-sales-pipeline.firebaseapp.com",
-          projectId: "my-sales-pipeline",
-          storageBucket: "my-sales-pipeline.firebasestorage.app",
-          messagingSenderId: "236679229616",
-          appId: "1:236679229616:web:4056a33f42435a9c4c0b75",
-          measurementId: "G-02ZY790ZH6"
+        // --- Production Firebase Configuration (from your Firebase project console) ---
+        const productionFirebaseConfig = {
+            apiKey: "AIzaSyAO4zGF-9Ess6RTE31aLgYNAi0H3lviqlI", // Example key
+            authDomain: "my-sales-pipeline.firebaseapp.com",
+            projectId: "my-sales-pipeline",
+            storageBucket: "my-sales-pipeline.firebasestorage.app",
+            messagingSenderId: "236679229616",
+            appId: "1:236679229616:web:4056a33f42435a9c4c0b75",
+            measurementId: "G-02ZY790ZH6"
         };
-        const appId = 'my-live-sales-pipeline';
+        const productionAppId = 'my-live-sales-pipeline';
+
+        // --- FIX: Dynamically select configuration based on environment ---
+        // Use injected __firebase_config in the development environment, otherwise use the production config.
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : productionFirebaseConfig;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : productionAppId;
 
         // --- Initialize Firebase ---
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        // Initialize App Check
-        initializeAppCheck(app, {
-          provider: new ReCaptchaV3Provider('6Le0BHUrAAAAAOGhqz7J3ghWOnGY79bkBg6DER7o'),
-          isTokenAutoRefreshEnabled: true
-        });
-        const auth = getAuth(app);
 
+        // --- FIX: Only initialize App Check in the production environment ---
+        // The __firebase_config variable only exists in the development environment.
+        if (typeof __firebase_config === 'undefined') {
+            initializeAppCheck(app, {
+              provider: new ReCaptchaV3Provider('PASTE_YOUR_RECAPTCHA_SITE_KEY_HERE'),
+              isTokenAutoRefreshEnabled: true
+            });
+        }
+        
+        // --- Now initialize all other Firebase services ---
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
         // --- App State ---
         let userId = null;
         let deals = [];
@@ -213,6 +224,9 @@
             onSnapshot(dealsCollection, (snapshot) => {
                 deals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderCards();
+            }, (error) => {
+                console.error("Firestore snapshot error:", error);
+                alert("Could not load deals. Check the console for App Check or Firestore permission errors.");
             });
         }
 
@@ -318,6 +332,7 @@
 
             const action = button.dataset.action;
             const card = e.target.closest('.kanban-card');
+            if (!card) return; // Add check to ensure card exists
             const dealId = card.dataset.id;
             const deal = deals.find(d => d.id === dealId);
 
@@ -354,8 +369,6 @@
 
         // --- Drag and Drop ---
         function addDragAndDropListeners() {
-            // This function remains largely the same, but we need to ensure it's called after columns are rendered.
-            // It's already correctly placed in setupPipeline().
             let draggedCard = null;
             pipelineContainer.addEventListener('dragstart', (e) => {
                 if (e.target.classList.contains('kanban-card')) {
@@ -422,7 +435,8 @@
                     return result.candidates[0].content.parts[0].text;
                 }
                 return "No suggestion received from the AI.";
-            } catch (error) {
+            } catch (error)
+                {
                 console.error("Gemini API call failed:", error);
                 return "Failed to get a suggestion. Please check the console for errors.";
             }
