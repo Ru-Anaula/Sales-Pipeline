@@ -135,8 +135,17 @@
         import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Firebase Configuration ---
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-sales-pipeline';
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyAO4zGF-9Ess6RTE31aLgYNAi0H3lviqlI",
+          authDomain: "my-sales-pipeline.firebaseapp.com",
+          projectId: "my-sales-pipeline",
+          storageBucket: "my-sales-pipeline.firebasestorage.app",
+          messagingSenderId: "236679229616",
+          appId: "1:236679229616:web:4056a33f42435a9c4c0b75",
+          measurementId: "G-02ZY790ZH6"
+        };
+        const appId = 'my-live-sales-pipeline';
 
         // --- Initialize Firebase ---
         const app = initializeApp(firebaseConfig);
