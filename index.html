@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sales Pipeline Tracker with AI Features</title>
+    <title>Sales Pipeline Tracker (Local Version)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -44,6 +44,7 @@
             padding: 1rem;
             margin-bottom: 1rem;
             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            cursor: grab;
             transition: all 0.2s ease;
         }
         .kanban-card:hover {
@@ -59,26 +60,18 @@
             background-color: #edf2f7;
             transition: background-color 0.2s ease;
         }
-        .gemini-btn {
-            background-color: #f0f9ff;
-            color: #0284c7;
-            border: 1px solid #bae6fd;
-        }
-        .gemini-btn:hover {
-            background-color: #e0f2fe;
-        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
     <div class="container mx-auto p-4 md:p-6">
         <div class="flex flex-col md:flex-row justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-900">Sales Pipeline</h1>
+            <h1 class="text-3xl font-bold text-gray-900">Sales Pipeline (Local)</h1>
             <button id="addDealBtn" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors">
                 Add New Deal
             </button>
         </div>
-        <div id="userIdDisplay" class="mb-4 text-sm text-gray-500"></div>
+        <div class="mb-4 text-sm text-gray-500">All data is saved locally in your browser.</div>
 
         <div id="pipeline" class="kanban-board">
             <!-- Columns will be dynamically generated here -->
@@ -99,12 +92,9 @@
                     <label for="companyName" class="block text-sm font-medium text-gray-700 mb-1">Company</label>
                     <input type="text" id="companyName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
-                <div class="mb-4">
+                <div class="mb-6">
                     <label for="dealNotes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                     <textarea id="dealNotes" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
-                </div>
-                <div class="mb-6">
-                     <button type="button" id="generateEmailBtn" class="w-full gemini-btn font-semibold py-2 px-4 rounded-lg transition-colors">✨ Generate Cold Email</button>
                 </div>
                 <div class="flex justify-end space-x-4">
                     <button type="button" id="cancelBtn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">Cancel</button>
@@ -113,64 +103,9 @@
             </form>
         </div>
     </div>
-    
-    <!-- Gemini Result Modal -->
-    <div id="geminiModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl p-6 md:p-8 w-full max-w-2xl max-h-[90vh] flex flex-col">
-            <h2 id="geminiModalTitle" class="text-2xl font-bold mb-4 text-gray-900">✨ AI Suggestion</h2>
-            <div id="geminiResult" class="prose max-w-none flex-grow overflow-y-auto bg-gray-50 p-4 rounded-lg whitespace-pre-wrap">
-                <!-- Gemini API result will be displayed here -->
-            </div>
-            <div class="flex justify-end space-x-4 mt-6">
-                 <button type="button" id="copyGeminiResultBtn" class="bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors">Copy</button>
-                <button type="button" id="closeGeminiModalBtn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">Close</button>
-            </div>
-        </div>
-    </div>
 
-
-    <script type="module">
-        // Ensure all Firebase imports are from the SAME version (e.g., 11.10.0)
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-        import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-        import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check.js";
-
-        // --- Production Firebase Configuration (from your Firebase project console) ---
-        const productionFirebaseConfig = {
-            apiKey: "AIzaSyAO4zGF-9Ess6RTE31aLgYNAi0H3lviqlI", // Example key
-            authDomain: "my-sales-pipeline.firebaseapp.com",
-            projectId: "my-sales-pipeline",
-            storageBucket: "my-sales-pipeline.firebasestorage.app",
-            messagingSenderId: "236679229616",
-            appId: "1:236679229616:web:4056a33f42435a9c4c0b75",
-            measurementId: "G-02ZY790ZH6"
-        };
-        const productionAppId = 'my-live-sales-pipeline';
-
-        // --- FIX: Dynamically select configuration based on environment ---
-        // Use injected __firebase_config in the development environment, otherwise use the production config.
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : productionFirebaseConfig;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : productionAppId;
-
-        // --- Initialize Firebase ---
-        const app = initializeApp(firebaseConfig);
-
-        // --- FIX: Only initialize App Check in the production environment ---
-        // The __firebase_config variable only exists in the development environment.
-        if (typeof __firebase_config === 'undefined') {
-            initializeAppCheck(app, {
-              provider: new ReCaptchaV3Provider('6Le0BHUrAAAAAOGhqz7J3ghWOnGY79bkBg6DER7o'),
-              isTokenAutoRefreshEnabled: true
-            });
-        }
-        
-        // --- Now initialize all other Firebase services ---
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        
+    <script>
         // --- App State ---
-        let userId = null;
         let deals = [];
         const stages = ['Lead', 'Contacted', 'Meeting Scheduled', 'Closed'];
 
@@ -185,49 +120,22 @@
         const dealNameInput = document.getElementById('dealName');
         const companyNameInput = document.getElementById('companyName');
         const dealNotesInput = document.getElementById('dealNotes');
-        const userIdDisplay = document.getElementById('userIdDisplay');
-        const generateEmailBtn = document.getElementById('generateEmailBtn');
-        const geminiModal = document.getElementById('geminiModal');
-        const geminiModalTitle = document.getElementById('geminiModalTitle');
-        const geminiResult = document.getElementById('geminiResult');
-        const closeGeminiModalBtn = document.getElementById('closeGeminiModalBtn');
-        const copyGeminiResultBtn = document.getElementById('copyGeminiResultBtn');
 
-        // --- Authentication ---
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                userIdDisplay.textContent = `User ID: ${userId}`;
-                await setupPipeline();
-            } else {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Authentication failed:", error);
-                    userIdDisplay.textContent = "Authentication failed. Please refresh.";
-                }
-            }
-        });
+        // --- Local Storage Functions ---
+        function loadDeals() {
+            const dealsJSON = localStorage.getItem('sales_deals');
+            deals = dealsJSON ? JSON.parse(dealsJSON) : [];
+        }
 
-        // --- Firestore Collection Reference ---
-        const getDealsCollection = () => collection(db, `artifacts/${appId}/users/${userId}/deals`);
-
+        function saveDeals() {
+            localStorage.setItem('sales_deals', JSON.stringify(deals));
+        }
+        
         // --- Pipeline Setup and Rendering ---
-        async function setupPipeline() {
-            if (!userId) return;
+        function setupPipeline() {
+            loadDeals();
             renderColumns();
-            const dealsCollection = getDealsCollection();
-            onSnapshot(dealsCollection, (snapshot) => {
-                deals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderCards();
-            }, (error) => {
-                console.error("Firestore snapshot error:", error);
-                alert("Could not load deals. Check the console for App Check or Firestore permission errors.");
-            });
+            renderCards();
         }
 
         function renderColumns() {
@@ -253,6 +161,7 @@
                 if (column) {
                     column.appendChild(card);
                 } else {
+                    // If stage is somehow invalid, put it in the first column
                     document.querySelector('.kanban-cards').appendChild(card);
                 }
             });
@@ -264,19 +173,10 @@
             card.draggable = true;
             card.dataset.id = deal.id;
             card.innerHTML = `
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="font-semibold text-gray-900">${deal.name}</p>
-                        <p class="text-sm text-gray-600">${deal.company}</p>
-                    </div>
-                    <button data-action="edit" class="text-gray-400 hover:text-blue-600 p-1 rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
-                    </button>
-                </div>
-                <div class="mt-4">
-                    <button data-action="suggest" data-id="${deal.id}" class="w-full text-sm gemini-btn font-semibold py-1.5 px-3 rounded-lg transition-colors">✨ Suggest Next Step</button>
-                </div>
+                <p class="font-semibold text-gray-900">${deal.name}</p>
+                <p class="text-sm text-gray-600">${deal.company}</p>
             `;
+            card.addEventListener('click', () => openModal(deal));
             return card;
         }
 
@@ -301,193 +201,85 @@
             dealModal.classList.add('hidden');
             dealModal.classList.remove('flex');
         }
-        
-        function openGeminiModal(title) {
-            geminiModalTitle.textContent = title;
-            geminiResult.innerHTML = '<div class="flex justify-center items-center h-full"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div><p class="ml-3 text-gray-600">Generating...</p></div>';
-            geminiModal.classList.remove('hidden');
-            geminiModal.classList.add('flex');
-        }
 
-        function closeGeminiModal() {
-            geminiModal.classList.add('hidden');
-            geminiModal.classList.remove('flex');
-        }
-
-        // --- Event Listeners ---
         addDealBtn.addEventListener('click', () => openModal());
         cancelBtn.addEventListener('click', closeModal);
         dealModal.addEventListener('click', (e) => {
-            if (e.target === dealModal) closeModal();
-        });
-        
-        closeGeminiModalBtn.addEventListener('click', closeGeminiModal);
-        geminiModal.addEventListener('click', (e) => {
-             if (e.target === geminiModal) closeGeminiModal();
-        });
-
-        pipelineContainer.addEventListener('click', (e) => {
-            const button = e.target.closest('button');
-            if (!button) return;
-
-            const action = button.dataset.action;
-            const card = e.target.closest('.kanban-card');
-            if (!card) return; // Add check to ensure card exists
-            const dealId = card.dataset.id;
-            const deal = deals.find(d => d.id === dealId);
-
-            if (action === 'edit') {
-                openModal(deal);
-            } else if (action === 'suggest') {
-                handleSuggestNextStep(deal);
+            if (e.target === dealModal) {
+                closeModal();
             }
         });
 
         // --- Form Submission (Add/Edit Deal) ---
-        dealForm.addEventListener('submit', async (e) => {
+        dealForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            if (!userId) return;
 
             const dealData = {
+                id: dealIdInput.value || crypto.randomUUID(),
                 name: dealNameInput.value,
                 company: companyNameInput.value,
                 notes: dealNotesInput.value,
+                stage: 'Lead'
             };
-            const id = dealIdInput.value;
-            try {
-                if (id) {
-                    await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/deals`, id), dealData);
-                } else {
-                    dealData.stage = 'Lead';
-                    await addDoc(getDealsCollection(), dealData);
-                }
-                closeModal();
-            } catch (error) {
-                console.error("Error saving deal: ", error);
+
+            const existingDealIndex = deals.findIndex(d => d.id === dealData.id);
+
+            if (existingDealIndex > -1) {
+                // Update existing deal
+                const existingStage = deals[existingDealIndex].stage;
+                dealData.stage = existingStage; // Keep the existing stage when editing
+                deals[existingDealIndex] = dealData;
+            } else {
+                // Add new deal
+                deals.push(dealData);
             }
+            
+            saveDeals();
+            renderCards();
+            closeModal();
         });
 
-        // --- Drag and Drop ---
+        // --- Drag and Drop Functionality ---
         function addDragAndDropListeners() {
             let draggedCard = null;
+
             pipelineContainer.addEventListener('dragstart', (e) => {
                 if (e.target.classList.contains('kanban-card')) {
                     draggedCard = e.target;
                     setTimeout(() => e.target.classList.add('dragging'), 0);
                 }
             });
+
             pipelineContainer.addEventListener('dragend', (e) => {
                 if (e.target.classList.contains('kanban-card')) {
                     e.target.classList.remove('dragging');
                     draggedCard = null;
                 }
             });
+
             pipelineContainer.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                const column = e.target.closest('.kanban-column');
-                if (column) {
-                    column.querySelector('.kanban-cards').classList.add('drop-zone');
-                }
             });
-            pipelineContainer.addEventListener('dragleave', (e) => {
-                 const column = e.target.closest('.kanban-column');
-                 if (column) {
-                    column.querySelector('.kanban-cards').classList.remove('drop-zone');
-                 }
-            });
-            pipelineContainer.addEventListener('drop', async (e) => {
+
+            pipelineContainer.addEventListener('drop', (e) => {
                 e.preventDefault();
                 const column = e.target.closest('.kanban-column');
                 if (column && draggedCard) {
-                    column.querySelector('.kanban-cards').classList.remove('drop-zone');
                     const newStage = column.dataset.stage;
                     const dealId = draggedCard.dataset.id;
-                    column.querySelector('.kanban-cards').appendChild(draggedCard);
-                    try {
-                        await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/deals`, dealId), { stage: newStage });
-                    } catch (error) {
-                        console.error("Error updating deal stage: ", error);
-                        renderCards(); // Revert UI on error
+                    
+                    const dealToMove = deals.find(d => d.id === dealId);
+                    if(dealToMove) {
+                        dealToMove.stage = newStage;
+                        saveDeals();
+                        renderCards();
                     }
                 }
             });
         }
 
-        // --- Gemini API Integration ---
-        async function callGemini(prompt) {
-            const apiKey = ""; // Leave empty, handled by environment
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-            const payload = {
-                contents: [{ role: "user", parts: [{ text: prompt }] }]
-            };
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!response.ok) {
-                    throw new Error(`API Error: ${response.statusText}`);
-                }
-                const result = await response.json();
-                if (result.candidates && result.candidates.length > 0) {
-                    return result.candidates[0].content.parts[0].text;
-                }
-                return "No suggestion received from the AI.";
-            } catch (error)
-                {
-                console.error("Gemini API call failed:", error);
-                return "Failed to get a suggestion. Please check the console for errors.";
-            }
-        }
-
-        async function handleSuggestNextStep(deal) {
-            openGeminiModal('✨ Suggesting Next Step...');
-            const prompt = `You are a sales coach. Based on the following sales deal, suggest the single most important and actionable next step to move this deal forward. Be concise and clear.
-            - Deal Name: ${deal.name}
-            - Company: ${deal.company}
-            - Current Stage: ${deal.stage}
-            - Notes: ${deal.notes || 'No notes provided.'}
-            
-            Suggested Next Step:`;
-            const suggestion = await callGemini(prompt);
-            geminiResult.textContent = suggestion;
-        }
-
-        generateEmailBtn.addEventListener('click', async () => {
-            const dealName = dealNameInput.value;
-            const companyName = companyNameInput.value;
-            if (!dealName || !companyName) {
-                alert("Please enter a Deal Name and Company Name first.");
-                return;
-            }
-            openGeminiModal('✨ Generating Cold Email...');
-            const prompt = `You are a sales expert. Write a professional, concise, and compelling cold outreach email.
-            - Recipient's Name (placeholder): ${dealName}
-            - Company: ${companyName}
-            - Goal: Introduce our company's value proposition (you can invent a plausible one, like "AI-powered workflow automation") and ask for a brief 15-minute introductory call.
-            
-            Keep the tone friendly but professional. Use a strong subject line.`;
-            const email = await callGemini(prompt);
-            geminiResult.textContent = email;
-        });
-        
-        copyGeminiResultBtn.addEventListener('click', () => {
-            const textToCopy = geminiResult.textContent;
-            const textArea = document.createElement('textarea');
-            textArea.value = textToCopy;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                copyGeminiResultBtn.textContent = 'Copied!';
-                setTimeout(() => { copyGeminiResultBtn.textContent = 'Copy'; }, 2000);
-            } catch (err) {
-                console.error('Failed to copy text: ', err);
-            }
-            document.body.removeChild(textArea);
-        });
+        // --- Initial Load ---
+        setupPipeline();
 
     </script>
 </body>
