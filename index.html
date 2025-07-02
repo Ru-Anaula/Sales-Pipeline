@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Pipeline Tracker with AI Features</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .kanban-board {
+            display: flex;
+            gap: 1.5rem;
+            overflow-x: auto;
+            padding: 1.5rem;
+            min-height: calc(100vh - 10rem);
+        }
+        .kanban-column {
+            flex: 1 0 280px;
+            max-width: 320px;
+            background-color: #f4f5f7;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .kanban-column-title {
+            font-weight: 600;
+            font-size: 1.125rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .kanban-cards {
+            flex-grow: 1;
+            min-height: 100px;
+            padding-bottom: 1rem;
+        }
+        .kanban-card {
+            background-color: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            transition: all 0.2s ease;
+        }
+        .kanban-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transform: translateY(-2px);
+        }
+        .kanban-card.dragging {
+            opacity: 0.5;
+            transform: rotate(3deg);
+        }
+        .drop-zone {
+            border: 2px dashed #cbd5e0;
+            background-color: #edf2f7;
+            transition: background-color 0.2s ease;
+        }
+        .gemini-btn {
+            background-color: #f0f9ff;
+            color: #0284c7;
+            border: 1px solid #bae6fd;
+        }
+        .gemini-btn:hover {
+            background-color: #e0f2fe;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-6">
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-900">Sales Pipeline</h1>
+            <button id="addDealBtn" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors">
+                Add New Deal
+            </button>
+        </div>
+        <div id="userIdDisplay" class="mb-4 text-sm text-gray-500"></div>
+
+        <div id="pipeline" class="kanban-board">
+            <!-- Columns will be dynamically generated here -->
+        </div>
+    </div>
+
+    <!-- Add/Edit Deal Modal -->
+    <div id="dealModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl p-6 md:p-8 w-full max-w-md">
+            <h2 id="modalTitle" class="text-2xl font-bold mb-6">Add New Deal</h2>
+            <form id="dealForm">
+                <input type="hidden" id="dealId">
+                <div class="mb-4">
+                    <label for="dealName" class="block text-sm font-medium text-gray-700 mb-1">Deal Name</label>
+                    <input type="text" id="dealName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div class="mb-4">
+                    <label for="companyName" class="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                    <input type="text" id="companyName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div class="mb-4">
+                    <label for="dealNotes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <textarea id="dealNotes" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
+                </div>
+                <div class="mb-6">
+                     <button type="button" id="generateEmailBtn" class="w-full gemini-btn font-semibold py-2 px-4 rounded-lg transition-colors">✨ Generate Cold Email</button>
+                </div>
+                <div class="flex justify-end space-x-4">
+                    <button type="button" id="cancelBtn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Save Deal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Gemini Result Modal -->
+    <div id="geminiModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl p-6 md:p-8 w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <h2 id="geminiModalTitle" class="text-2xl font-bold mb-4 text-gray-900">✨ AI Suggestion</h2>
+            <div id="geminiResult" class="prose max-w-none flex-grow overflow-y-auto bg-gray-50 p-4 rounded-lg whitespace-pre-wrap">
+                <!-- Gemini API result will be displayed here -->
+            </div>
+            <div class="flex justify-end space-x-4 mt-6">
+                 <button type="button" id="copyGeminiResultBtn" class="bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors">Copy</button>
+                <button type="button" id="closeGeminiModalBtn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">Close</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Firebase Configuration ---
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-sales-pipeline';
+
+        // --- Initialize Firebase ---
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // --- App State ---
+        let userId = null;
+        let deals = [];
+        const stages = ['Lead', 'Contacted', 'Meeting Scheduled', 'Closed'];
+
+        // --- DOM Elements ---
+        const pipelineContainer = document.getElementById('pipeline');
+        const addDealBtn = document.getElementById('addDealBtn');
+        const dealModal = document.getElementById('dealModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const dealForm = document.getElementById('dealForm');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const dealIdInput = document.getElementById('dealId');
+        const dealNameInput = document.getElementById('dealName');
+        const companyNameInput = document.getElementById('companyName');
+        const dealNotesInput = document.getElementById('dealNotes');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const generateEmailBtn = document.getElementById('generateEmailBtn');
+        const geminiModal = document.getElementById('geminiModal');
+        const geminiModalTitle = document.getElementById('geminiModalTitle');
+        const geminiResult = document.getElementById('geminiResult');
+        const closeGeminiModalBtn = document.getElementById('closeGeminiModalBtn');
+        const copyGeminiResultBtn = document.getElementById('copyGeminiResultBtn');
+
+        // --- Authentication ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                userIdDisplay.textContent = `User ID: ${userId}`;
+                await setupPipeline();
+            } else {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Authentication failed:", error);
+                    userIdDisplay.textContent = "Authentication failed. Please refresh.";
+                }
+            }
+        });
+
+        // --- Firestore Collection Reference ---
+        const getDealsCollection = () => collection(db, `artifacts/${appId}/users/${userId}/deals`);
+
+        // --- Pipeline Setup and Rendering ---
+        async function setupPipeline() {
+            if (!userId) return;
+            renderColumns();
+            const dealsCollection = getDealsCollection();
+            onSnapshot(dealsCollection, (snapshot) => {
+                deals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderCards();
+            });
+        }
+
+        function renderColumns() {
+            pipelineContainer.innerHTML = '';
+            stages.forEach(stage => {
+                const column = document.createElement('div');
+                column.className = 'kanban-column';
+                column.dataset.stage = stage;
+                column.innerHTML = `
+                    <h3 class="kanban-column-title">${stage}</h3>
+                    <div class="kanban-cards" data-stage-cards="${stage}"></div>
+                `;
+                pipelineContainer.appendChild(column);
+            });
+            addDragAndDropListeners();
+        }
+
+        function renderCards() {
+            document.querySelectorAll('.kanban-cards').forEach(col => col.innerHTML = '');
+            deals.forEach(deal => {
+                const card = createDealCard(deal);
+                const column = document.querySelector(`.kanban-cards[data-stage-cards="${deal.stage}"]`);
+                if (column) {
+                    column.appendChild(card);
+                } else {
+                    document.querySelector('.kanban-cards').appendChild(card);
+                }
+            });
+        }
+
+        function createDealCard(deal) {
+            const card = document.createElement('div');
+            card.className = 'kanban-card';
+            card.draggable = true;
+            card.dataset.id = deal.id;
+            card.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="font-semibold text-gray-900">${deal.name}</p>
+                        <p class="text-sm text-gray-600">${deal.company}</p>
+                    </div>
+                    <button data-action="edit" class="text-gray-400 hover:text-blue-600 p-1 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
+                    </button>
+                </div>
+                <div class="mt-4">
+                    <button data-action="suggest" data-id="${deal.id}" class="w-full text-sm gemini-btn font-semibold py-1.5 px-3 rounded-lg transition-colors">✨ Suggest Next Step</button>
+                </div>
+            `;
+            return card;
+        }
+
+        // --- Modal Handling ---
+        function openModal(deal = null) {
+            dealForm.reset();
+            if (deal) {
+                modalTitle.textContent = 'Edit Deal';
+                dealIdInput.value = deal.id;
+                dealNameInput.value = deal.name;
+                companyNameInput.value = deal.company;
+                dealNotesInput.value = deal.notes || '';
+            } else {
+                modalTitle.textContent = 'Add New Deal';
+                dealIdInput.value = '';
+            }
+            dealModal.classList.remove('hidden');
+            dealModal.classList.add('flex');
+        }
+
+        function closeModal() {
+            dealModal.classList.add('hidden');
+            dealModal.classList.remove('flex');
+        }
+        
+        function openGeminiModal(title) {
+            geminiModalTitle.textContent = title;
+            geminiResult.innerHTML = '<div class="flex justify-center items-center h-full"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div><p class="ml-3 text-gray-600">Generating...</p></div>';
+            geminiModal.classList.remove('hidden');
+            geminiModal.classList.add('flex');
+        }
+
+        function closeGeminiModal() {
+            geminiModal.classList.add('hidden');
+            geminiModal.classList.remove('flex');
+        }
+
+        // --- Event Listeners ---
+        addDealBtn.addEventListener('click', () => openModal());
+        cancelBtn.addEventListener('click', closeModal);
+        dealModal.addEventListener('click', (e) => {
+            if (e.target === dealModal) closeModal();
+        });
+        
+        closeGeminiModalBtn.addEventListener('click', closeGeminiModal);
+        geminiModal.addEventListener('click', (e) => {
+             if (e.target === geminiModal) closeGeminiModal();
+        });
+
+        pipelineContainer.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+
+            const action = button.dataset.action;
+            const card = e.target.closest('.kanban-card');
+            const dealId = card.dataset.id;
+            const deal = deals.find(d => d.id === dealId);
+
+            if (action === 'edit') {
+                openModal(deal);
+            } else if (action === 'suggest') {
+                handleSuggestNextStep(deal);
+            }
+        });
+
+        // --- Form Submission (Add/Edit Deal) ---
+        dealForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!userId) return;
+
+            const dealData = {
+                name: dealNameInput.value,
+                company: companyNameInput.value,
+                notes: dealNotesInput.value,
+            };
+            const id = dealIdInput.value;
+            try {
+                if (id) {
+                    await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/deals`, id), dealData);
+                } else {
+                    dealData.stage = 'Lead';
+                    await addDoc(getDealsCollection(), dealData);
+                }
+                closeModal();
+            } catch (error) {
+                console.error("Error saving deal: ", error);
+            }
+        });
+
+        // --- Drag and Drop ---
+        function addDragAndDropListeners() {
+            // This function remains largely the same, but we need to ensure it's called after columns are rendered.
+            // It's already correctly placed in setupPipeline().
+            let draggedCard = null;
+            pipelineContainer.addEventListener('dragstart', (e) => {
+                if (e.target.classList.contains('kanban-card')) {
+                    draggedCard = e.target;
+                    setTimeout(() => e.target.classList.add('dragging'), 0);
+                }
+            });
+            pipelineContainer.addEventListener('dragend', (e) => {
+                if (e.target.classList.contains('kanban-card')) {
+                    e.target.classList.remove('dragging');
+                    draggedCard = null;
+                }
+            });
+            pipelineContainer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const column = e.target.closest('.kanban-column');
+                if (column) {
+                    column.querySelector('.kanban-cards').classList.add('drop-zone');
+                }
+            });
+            pipelineContainer.addEventListener('dragleave', (e) => {
+                 const column = e.target.closest('.kanban-column');
+                 if (column) {
+                    column.querySelector('.kanban-cards').classList.remove('drop-zone');
+                 }
+            });
+            pipelineContainer.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                const column = e.target.closest('.kanban-column');
+                if (column && draggedCard) {
+                    column.querySelector('.kanban-cards').classList.remove('drop-zone');
+                    const newStage = column.dataset.stage;
+                    const dealId = draggedCard.dataset.id;
+                    column.querySelector('.kanban-cards').appendChild(draggedCard);
+                    try {
+                        await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/deals`, dealId), { stage: newStage });
+                    } catch (error) {
+                        console.error("Error updating deal stage: ", error);
+                        renderCards(); // Revert UI on error
+                    }
+                }
+            });
+        }
+
+        // --- Gemini API Integration ---
+        async function callGemini(prompt) {
+            const apiKey = ""; // Leave empty, handled by environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }]
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.statusText}`);
+                }
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0) {
+                    return result.candidates[0].content.parts[0].text;
+                }
+                return "No suggestion received from the AI.";
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                return "Failed to get a suggestion. Please check the console for errors.";
+            }
+        }
+
+        async function handleSuggestNextStep(deal) {
+            openGeminiModal('✨ Suggesting Next Step...');
+            const prompt = `You are a sales coach. Based on the following sales deal, suggest the single most important and actionable next step to move this deal forward. Be concise and clear.
+            - Deal Name: ${deal.name}
+            - Company: ${deal.company}
+            - Current Stage: ${deal.stage}
+            - Notes: ${deal.notes || 'No notes provided.'}
+            
+            Suggested Next Step:`;
+            const suggestion = await callGemini(prompt);
+            geminiResult.textContent = suggestion;
+        }
+
+        generateEmailBtn.addEventListener('click', async () => {
+            const dealName = dealNameInput.value;
+            const companyName = companyNameInput.value;
+            if (!dealName || !companyName) {
+                alert("Please enter a Deal Name and Company Name first.");
+                return;
+            }
+            openGeminiModal('✨ Generating Cold Email...');
+            const prompt = `You are a sales expert. Write a professional, concise, and compelling cold outreach email.
+            - Recipient's Name (placeholder): ${dealName}
+            - Company: ${companyName}
+            - Goal: Introduce our company's value proposition (you can invent a plausible one, like "AI-powered workflow automation") and ask for a brief 15-minute introductory call.
+            
+            Keep the tone friendly but professional. Use a strong subject line.`;
+            const email = await callGemini(prompt);
+            geminiResult.textContent = email;
+        });
+        
+        copyGeminiResultBtn.addEventListener('click', () => {
+            const textToCopy = geminiResult.textContent;
+            const textArea = document.createElement('textarea');
+            textArea.value = textToCopy;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                copyGeminiResultBtn.textContent = 'Copied!';
+                setTimeout(() => { copyGeminiResultBtn.textContent = 'Copy'; }, 2000);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+            }
+            document.body.removeChild(textArea);
+        });
+
+    </script>
+</body>
+</html>
